@@ -73,7 +73,7 @@ ${prompt}
 
     // Use generateText with image-capable Gemini model
     const result = await generateText({
-      model: google("gemini-2.5-flash-image"),
+      model: google("gemini-2.5-flash"),
       messages: [{ role: "user", content }],
     });
 

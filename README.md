@@ -328,19 +328,6 @@ npm run dev
 - Check that your Gemini API key has access to image generation models
 - Look at browser console and terminal for detailed error messages
 </details>
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-## 📄 License
-
-MIT License — feel free to use this project for personal or commercial purposes.
-
 ---
 
 <p align="center">
