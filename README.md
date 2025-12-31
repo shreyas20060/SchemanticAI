@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <strong>Built by <a href="https://github.com/Abhishek-Sonje">Abhishek</a> & <a href="https://github.com/shreyas">Shreyas</a></strong>
+  <strong>Built by <a href="https://github.com/Abhishek-Sonje"> <a href="https://github.com/shreyas">Shreyas</a></strong>
 </p>
 
 ---
