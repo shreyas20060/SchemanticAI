@@ -1,5 +1,5 @@
 "use client";
-
+import Mermaid from "react-mermaid2";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Whiteboard } from "@/components/whiteboard";
 import { IntentInput } from "@/components/intent-input";
@@ -51,8 +51,6 @@ export default function Home() {
       return;
     }
 
-    // Determine the prompt to use: override or current intent
-    // If it's an event object (from button click), ignore it
     const promptText = typeof overridePrompt === "string" ? overridePrompt : intent;
 
     if (!promptText.trim()) {
@@ -72,10 +70,8 @@ export default function Home() {
       // Convert data URL to base64 string
       if (imageDataUrl) {
         if (imageDataUrl.startsWith("data:image/png;base64,")) {
-          // Extract base64 from data URL
           base64Image = imageDataUrl.replace("data:image/png;base64,", "");
         } else {
-          // Fetch and convert
           const response = await fetch(imageDataUrl);
           const blob = await response.blob();
           const reader = new FileReader();
@@ -105,7 +101,14 @@ export default function Home() {
       }
 
       const data = await apiResponse.json();
-      setGeneratedImage(data.image_data);
+      
+      // ✅ FIX: Use data.result because your backend sends { result: "..." }
+      if (data.result) {
+        setGeneratedImage(data.result);
+      } else {
+        throw new Error("Invalid response from server");
+      }
+
     } catch (err) {
       console.error("Error:", err);
       setError(
@@ -120,7 +123,6 @@ export default function Home() {
     setGeneratedImage(null);
     setIntent("");
     setResetSignal((prev) => prev + 1);
-    // The whiteboard component handles the actual insertion
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -132,7 +134,6 @@ export default function Home() {
 
   const handleRejectSuggestion = useCallback(() => {
     setGeneratedImage(null);
-    // We keep the intent so the user can modify it significantly if needed
   }, []);
 
   // Handle keyboard shortcuts (Esc to reject)
@@ -174,14 +175,12 @@ export default function Home() {
         }
       }
       if (finalTranscript) {
-        console.log("Voice input:", finalTranscript);
         setAgentTranscript((prev) => prev + finalTranscript);
-        lastActivityTimeRef.current = Date.now(); // Reset idle timer on speech
+        lastActivityTimeRef.current = Date.now();
       }
     };
 
     recognition.onend = () => {
-      // Auto-restart if still listening
       if (isListeningRef.current) {
         try {
           recognition.start();
@@ -192,7 +191,6 @@ export default function Home() {
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error("Speech recognition error:", event.error);
       if (event.error !== "no-speech") {
         setIsListening(false);
         isListeningRef.current = false;
@@ -215,7 +213,6 @@ export default function Home() {
     }
 
     if (isListening) {
-      // Stop listening
       recognition.stop();
       if (idleCheckIntervalRef.current) {
         clearInterval(idleCheckIntervalRef.current);
@@ -224,12 +221,10 @@ export default function Home() {
       setIsListening(false);
       isListeningRef.current = false;
 
-      // If we have a transcript, use it for generation
       if (agentTranscriptRef.current.trim()) {
         handleRequestSuggestion(agentTranscriptRef.current.trim());
       }
     } else {
-      // Start listening
       setAgentTranscript("");
       agentTranscriptRef.current = "";
       lastActivityTimeRef.current = Date.now();
@@ -238,13 +233,10 @@ export default function Home() {
         setIsListening(true);
         isListeningRef.current = true;
 
-        // Idle detection: check every 500ms if idle for 4.5 seconds
         idleCheckIntervalRef.current = setInterval(() => {
           const idleTime = Date.now() - lastActivityTimeRef.current;
           if (idleTime > 4500 && agentTranscriptRef.current.trim() && isListeningRef.current) {
-            console.log("Idle detected, auto-generating...");
             handleRequestSuggestion(agentTranscriptRef.current.trim());
-            // Stop listening after auto-generate
             recognition.stop();
             setIsListening(false);
             isListeningRef.current = false;
@@ -260,7 +252,6 @@ export default function Home() {
     }
   }, [isListening, handleRequestSuggestion]);
 
-  // Handle drawing activity - reset idle timer
   const handleDrawingActivity = useCallback(() => {
     lastActivityTimeRef.current = Date.now();
   }, []);
@@ -279,20 +270,7 @@ export default function Home() {
         />
       </div>
 
-      {/* 2. Floating Header (Top Left) */}
-      {/* <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="absolute top-6 left-6 z-10 glass px-4 py-2 rounded-full flex items-center gap-3"
-      >
-        <div className="w-3 h-3 bg-black rounded-full" />
-        <h1 className="text-sm font-semibold tracking-tight text-foreground/90">
-          SchemanticAI
-        </h1>
-      </motion.div> */}
-
-      {/* 3. Floating Control Island (Bottom Center) */}
+      {/* 2. Floating Control Island (Bottom Center) */}
       <div className="absolute bottom-24 backdrop-blur-md left-1/2 -translate-x-1/2 z-20 w-full max-w-2xl px-4 pointer-events-none">
         <motion.div
           layout
@@ -314,12 +292,20 @@ export default function Home() {
               <Sparkles className="w-5 h-5" />
             </Button>
             
-            <IntentInput // Updated component will need modification to fit this context perfectly, but reusing logic for now
-              onIntentChange={setIntent}
-              onSubmit={handleRequestSuggestion}
+{/* 👇 NEW TEXTAREA REPLACING INTENTINPUT 👇 */}
+            <textarea
+              value={intent} 
+              onChange={(e) => setIntent(e.target.value)}
               disabled={isLoading}
-              resetSignal={resetSignal}
-              // We'll pass a custom class to strip the default border via the component update next
+              placeholder="Describe your architecture here... (Press Shift+Enter for new line)"
+              className="flex-1 bg-transparent border rounded-md p-2 text-sm min-h-[44px] max-h-[200px] resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+              // Allow submitting with Enter, but new lines with Shift+Enter
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleRequestSuggestion();
+                }
+              }}
             />
 
             <Button
@@ -404,8 +390,7 @@ export default function Home() {
         </motion.button>
       </div>
 
-      {/* 4. Preview Card (Bottom Right) */}
-      {/* 4. Large Preview Popover (Bottom Right) */}
+      {/* 3. Large Preview Popover (Bottom Right) */}
       <AnimatePresence>
         {generatedImage && (
           <motion.div
@@ -413,7 +398,7 @@ export default function Home() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="absolute bottom-8 right-8 z-30 glass p-4 rounded-3xl shadow-2xl flex flex-col gap-4 w-auto max-w-[300px] origin-bottom-right"
+            className="absolute bottom-8 right-8 z-30 glass p-4 rounded-3xl shadow-2xl flex flex-col gap-4 w-full max-w-[400px] origin-bottom-right bg-white/80 backdrop-blur-xl border border-white/20"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-2">
@@ -433,13 +418,11 @@ export default function Home() {
                 </Button>
             </div>
 
-            {/* Image Container */}
-            <div className="bg-white rounded-2xl border border-black/5 overflow-hidden flex items-center justify-center relative min-h-[200px] max-h-[400px]">
-              <img
-                src={`data:image/png;base64,${generatedImage}`}
-                alt="Refined diagram"
-                className="max-w-full max-h-[400px] object-contain"
-              />
+            {/* Diagram Container */}
+            <div className="rounded-2xl border border-black/5 bg-white p-4 min-h-[200px] max-h-[400px] w-full overflow-auto flex items-center justify-center shadow-inner">
+               <div className="w-full flex justify-center">
+                  <Mermaid chart={generatedImage} />
+               </div>
             </div>
 
             {/* Footer Actions */}
@@ -460,9 +443,9 @@ export default function Home() {
                   Accept (Tab)
                 </Button>
             </div>
-          </motion.div>
+          </motion.div> 
         )}
       </AnimatePresence>
     </div>
   );
-}
+};
